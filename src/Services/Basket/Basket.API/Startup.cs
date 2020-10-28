@@ -36,6 +36,8 @@ using System.IO;
 using GrpcBasket;
 using Microsoft.AspNetCore.Http.Features;
 using Serilog;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 namespace Microsoft.eShopOnContainers.Services.Basket.API
 {
@@ -181,6 +183,18 @@ namespace Microsoft.eShopOnContainers.Services.Basket.API
             services.AddTransient<IIdentityService, IdentityService>();
 
             services.AddOptions();
+
+            services.AddOpenTelemetryTracing((serviceProvider, builder) => {
+                var connectionMultiplexer = serviceProvider.GetRequiredService<ConnectionMultiplexer>();
+                
+                builder
+                    .SetResource(Resources.CreateServiceResource("Basket.API"))
+                    .AddAspNetCoreInstrumentation()
+                    .AddRedisInstrumentation(connectionMultiplexer)
+                    .AddNewRelicExporter(options => {
+                        options.ApiKey = Environment.GetEnvironmentVariable("NEW_RELIC_INSERT_API_KEY");
+                    });
+            });
 
             var container = new ContainerBuilder();
             container.Populate(services);
